@@ -413,6 +413,20 @@ async function ensurePdfDocument(source) {
   return pdf;
 }
 
+async function getAllPdfPageNumbers(source) {
+  try {
+    const pdf = await ensurePdfDocument(source);
+    const total = Number.isInteger(pdf.numPages) ? pdf.numPages : Number.parseInt(pdf.numPages, 10);
+    if (!Number.isInteger(total) || total <= 0) {
+      return [];
+    }
+    return Array.from({ length: total }, (_, index) => index + 1);
+  } catch (error) {
+    console.warn("Kon paginalijst niet ophalen", error);
+    return [];
+  }
+}
+
 function resetPdfCanvasState() {
   if (pdfCanvasState.document) {
     pdfCanvasState.document.destroy().catch((error) => {
@@ -914,10 +928,12 @@ function handleActivityClick(event) {
       ? pdf
       : storedTicket?.dataUrl || pdf || FALLBACK_PDF;
 
-  showPdfViewer(resolvedPdf, title, activityId);
+  showPdfViewer(resolvedPdf, title, activityId).catch((error) => {
+    console.error("Kon pdf-viewer niet openen", error);
+  });
 }
 
-function showPdfViewer(pdfUrl, title, activityId = null) {
+async function showPdfViewer(pdfUrl, title, activityId = null) {
   const viewer = document.querySelector("[data-pdf-viewer]");
   const frame = viewer?.querySelector("[data-pdf-frame]");
   if (!viewer || !frame) {
@@ -950,11 +966,24 @@ function showPdfViewer(pdfUrl, title, activityId = null) {
           .sort((a, b) => a - b)
       : [];
 
-  const useCanvasViewer = PREFER_CANVAS_VIEWER && pageNumbers.length > 0;
+  let useCanvasViewer = PREFER_CANVAS_VIEWER;
+  let resolvedPages = pageNumbers;
+
+  if (useCanvasViewer && resolvedPages.length === 0) {
+    try {
+      resolvedPages = await getAllPdfPageNumbers(baseSource);
+    } catch (error) {
+      console.warn("Kon volledige paginalijst niet bepalen", error);
+      resolvedPages = [];
+    }
+    if (!resolvedPages.length) {
+      useCanvasViewer = false;
+    }
+  }
 
   setViewerContext({
     baseSource,
-    pages: pageNumbers,
+    pages: resolvedPages,
     currentIndex: 0,
     activityId,
     title,
@@ -963,7 +992,7 @@ function showPdfViewer(pdfUrl, title, activityId = null) {
 
   toggleCanvasViewer(useCanvasViewer);
 
-  if (pageNumbers.length) {
+  if (viewerContext.pages.length > 0) {
     setViewerPage(0);
   } else {
     toggleCanvasViewer(false);
@@ -1174,7 +1203,9 @@ function setupUploadFlow() {
       syncUiState();
 
       closeModal();
-      showPdfViewer(dataUrl, file.name);
+      showPdfViewer(dataUrl, file.name).catch((error) => {
+        console.error("Kon geüploade PDF niet tonen", error);
+      });
     } catch (error) {
       console.error("Upload of parsing mislukt", error);
       setFeedback("Ruben is dik!", "error");
