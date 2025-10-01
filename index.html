@@ -26,12 +26,13 @@
       <div class="bat"></div>
       <div class="bat"></div>
     </div>
-    <header class="app-header">
-      <h1>Fright Night kalender</h1>
-    </header>
-    <main>
-      <section class="onboarding" data-onboarding aria-label="Welkom">
-        <div class="onboarding__card">
+    <div class="app-shell">
+      <header class="app-header">
+        <h1>Fright Night kalender</h1>
+      </header>
+      <main>
+        <section class="onboarding" data-onboarding aria-label="Welkom">
+          <div class="onboarding__card">
           <div class="onboarding__step" data-onboarding-step="confirm">
             <h2 class="onboarding__title">Welkom</h2>
             <p class="onboarding__copy">Welkom, voordat je verder gaat het volgende bevestigen:</p>
@@ -67,28 +68,29 @@
             </button>
             <p class="onboarding__hint">We bewaren alles alleen lokaal op je apparaat.</p>
           </div>
-        </div>
-      </section>
-      <section class="calendar" data-calendar aria-label="Overzicht activiteiten">
-        <ul class="calendar-list" data-calendar-list>
-          <li class="calendar-item" data-state="loading">
-            <h3>Activiteiten laden...</h3>
-            <p>Controleer je verbinding of ververs de pagina.</p>
-          </li>
-        </ul>
-        <div class="calendar__actions">
-          <button
-            type="button"
-            class="calendar__upload"
-            data-upload-trigger
-            data-calendar-upload
-            hidden
-          >
-            Upload nieuw document
-          </button>
-        </div>
-      </section>
-    </main>
+          </div>
+        </section>
+        <section class="calendar" data-calendar aria-label="Overzicht activiteiten">
+          <ul class="calendar-list" data-calendar-list>
+            <li class="calendar-item" data-state="loading">
+              <h3>Activiteiten laden...</h3>
+              <p>Controleer je verbinding of ververs de pagina.</p>
+            </li>
+          </ul>
+          <div class="calendar__actions">
+            <button
+              type="button"
+              class="calendar__upload"
+              data-upload-trigger
+              data-calendar-upload
+              hidden
+            >
+              Upload nieuw document
+            </button>
+          </div>
+        </section>
+      </main>
+    </div>
     <div class="pdf-viewer is-hidden" data-pdf-viewer aria-hidden="true">
       <div class="pdf-viewer__backdrop" data-close-viewer></div>
       <div class="pdf-viewer__content" role="dialog" aria-modal="true" aria-label="Activiteit details">

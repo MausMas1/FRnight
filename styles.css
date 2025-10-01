@@ -23,8 +23,17 @@ body {
     linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
   display: flex;
   flex-direction: column;
-  padding: 1rem;
+  padding: clamp(0.75rem, 3vw, 1.5rem);
   overflow-x: hidden;
+}
+
+.app-shell {
+  width: min(100%, 960px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 3vw, 1.8rem);
+  padding: 0 clamp(0.15rem, 3vw, 1rem);
 }
 
 .app-header {
@@ -39,8 +48,10 @@ body {
     radial-gradient(circle at 82% 140%, rgba(76, 179, 255, 0.22), transparent 70%),
     rgba(10, 12, 24, 0.93);
   box-shadow: 0 12px 32px rgba(8, 9, 17, 0.6), inset 0 0 18px rgba(249, 114, 22, 0.28), inset 0 0 24px rgba(76, 179, 255, 0.22);
-  overflow: visible;
   isolation: isolate;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .app-header::before {
@@ -131,8 +142,9 @@ main {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  margin-top: 1.5rem;
+  gap: clamp(1.1rem, 4vw, 1.6rem);
+  margin-top: clamp(1rem, 5vw, 1.6rem);
+  width: 100%;
 }
 
 .onboarding {
@@ -147,6 +159,7 @@ main {
   box-shadow: 0 20px 45px rgba(8, 9, 17, 0.55);
   position: relative;
   overflow: hidden;
+  width: 100%;
 }
 
 .onboarding::after {
@@ -339,6 +352,7 @@ main {
   --thumb-size: clamp(72px, 14vw, 110px);
   position: relative;
   width: 100%;
+  max-width: 100%;
   padding: 1.4rem 1.75rem;
   border-radius: 1.25rem;
   border: 2px solid var(--highlight);
@@ -357,6 +371,7 @@ main {
 
 .calendar {
   transition: opacity 0.3s ease;
+  width: 100%;
 }
 
 .calendar.is-hidden {
@@ -457,17 +472,38 @@ main {
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    padding: 0 0.4rem;
+  }
+
+  .app-header {
+    padding: clamp(0.6rem, 4vw, 0.9rem) clamp(0.7rem, 5vw, 1.4rem);
+  }
+
+  .app-header h1 {
+    font-size: clamp(1.35rem, 6vw, 2.2rem);
+  }
+
+  .onboarding {
+    padding: clamp(1.05rem, 6vw, 1.55rem);
+    min-height: auto;
+  }
+
+  .onboarding__card {
+    width: 100%;
+  }
+
   .calendar-item {
-    padding: 1.1rem 1.25rem;
+    padding: clamp(1rem, 5vw, 1.2rem);
   }
 
   .calendar-layout {
-    grid-template-columns: minmax(56px, 24vw) minmax(0, 1fr) auto;
-    gap: clamp(0.6rem, 2vw, 0.8rem);
+    grid-template-columns: minmax(54px, 26vw) minmax(0, 1fr);
+    gap: clamp(0.6rem, 3vw, 0.85rem);
   }
 
   .calendar-thumb {
-    max-width: min(24vw, 96px);
+    max-width: min(26vw, 88px);
   }
 
   .calendar-info {
@@ -476,6 +512,8 @@ main {
 
   .calendar-layout .status-badge {
     justify-self: center;
+    grid-column: 1 / -1;
+    margin-top: 0.25rem;
   }
 
   .status-badge {
