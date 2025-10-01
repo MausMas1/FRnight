@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="nl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FRnight Helper</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Nosifer&family=Creepster&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module">
+      import * as pdfjsLib from "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs";
+
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs";
+
+      window.pdfjsLib = pdfjsLib;
+    </script>
+  </head>
+  <body>
+    <div class="bat-sky" aria-hidden="true">
+      <div class="bat"></div>
+      <div class="bat"></div>
+      <div class="bat"></div>
+    </div>
+    <header class="app-header">
+      <h1>Fright Night kalender</h1>
+    </header>
+    <main>
+      <section class="onboarding" data-onboarding aria-label="Welkom">
+        <div class="onboarding__card">
+          <div class="onboarding__step" data-onboarding-step="confirm">
+            <h2 class="onboarding__title">Welkom</h2>
+            <p class="onboarding__copy">Welkom, voordat je verder gaat het volgende bevestigen:</p>
+            <label class="onboarding__checkbox">
+              <input
+                type="checkbox"
+                class="onboarding__checkbox-input"
+                data-onboarding-confirm
+              />
+              <span class="onboarding__checkbox-icon" aria-hidden="true"></span>
+              <span class="onboarding__checkbox-text">Ik ben dikker dan mijn broer!</span>
+            </label>
+          </div>
+          <div class="onboarding__step is-hidden" data-onboarding-step="success">
+            <h2 class="onboarding__title onboarding__title--success">Goed zo!</h2>
+            <img
+              src="assets/onboard/RubsHalloweenfat.png.png"
+              alt=""
+              class="onboarding__image"
+              decoding="async"
+              loading="lazy"
+            />
+            <p class="onboarding__copy">
+              Upload je PDF-bestand om de activiteitenkalender automatisch te vullen.
+            </p>
+            <button
+              type="button"
+              class="onboarding__cta"
+              data-upload-trigger
+              data-onboarding-upload
+            >
+              Upload je PDF
+            </button>
+            <p class="onboarding__hint">We bewaren alles alleen lokaal op je apparaat.</p>
+          </div>
+        </div>
+      </section>
+      <section class="calendar" data-calendar aria-label="Overzicht activiteiten">
+        <ul class="calendar-list" data-calendar-list>
+          <li class="calendar-item" data-state="loading">
+            <h3>Activiteiten laden...</h3>
+            <p>Controleer je verbinding of ververs de pagina.</p>
+          </li>
+        </ul>
+        <div class="calendar__actions">
+          <button
+            type="button"
+            class="calendar__upload"
+            data-upload-trigger
+            data-calendar-upload
+            hidden
+          >
+            Upload nieuw document
+          </button>
+        </div>
+      </section>
+    </main>
+    <div class="pdf-viewer is-hidden" data-pdf-viewer aria-hidden="true">
+      <div class="pdf-viewer__backdrop" data-close-viewer></div>
+      <div class="pdf-viewer__content" role="dialog" aria-modal="true" aria-label="Activiteit details">
+        <div class="pdf-viewer__toolbar">
+          <button class="pdf-viewer__close" type="button" data-close-viewer aria-label="Sluiten">
+            &times;
+          </button>
+          <div class="pdf-viewer__nav" data-viewer-nav hidden>
+            <button type="button" class="pdf-viewer__nav-btn" data-viewer-prev aria-label="Vorige ticketpagina">
+              ◀
+            </button>
+            <span class="pdf-viewer__nav-label" data-viewer-label>Ticket 1/2</span>
+            <button type="button" class="pdf-viewer__nav-btn" data-viewer-next aria-label="Volgende ticketpagina">
+              ▶
+            </button>
+          </div>
+        </div>
+        <embed src="" type="application/pdf" title="Activiteit PDF" data-pdf-frame />
+      </div>
+    </div>
+    <div class="upload-modal is-hidden" data-upload-modal aria-hidden="true">
+      <div class="upload-modal__backdrop" data-close-upload></div>
+      <form class="upload-modal__content" data-upload-form>
+        <h2 class="upload-modal__title">Upload experience tickets</h2>
+        <p class="upload-modal__subtitle">Selecteer een PDF-bestand. We bewaren deze lokaal op je apparaat.</p>
+        <label class="upload-modal__field">
+          <span>Bestand (PDF)</span>
+          <input type="file" accept="application/pdf" data-upload-input required />
+        </label>
+        <p class="upload-modal__hint">Tip: gebruik tickets of plattegronden voor FRnight.</p>
+        <div class="upload-modal__actions">
+          <button type="submit" class="upload-modal__submit">Uploaden</button>
+          <button type="button" class="upload-modal__cancel" data-close-upload>Annuleren</button>
+        </div>
+        <p class="upload-modal__feedback" data-upload-feedback aria-live="polite"></p>
+      </form>
+    </div>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
