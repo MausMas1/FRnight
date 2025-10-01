@@ -76,6 +76,22 @@ const defaultActivities = [
 const MINUTES_PER_HOUR = 60;
 const EXPIRY_GRACE_MINUTES = 8;
 
+function detectCanvasViewerSupport() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+
+  const platform = navigator.platform || navigator.userAgentData?.platform || "";
+  const userAgent = navigator.userAgent || "";
+  const maxTouchPoints = Number(navigator.maxTouchPoints) || 0;
+
+  const isIos = /iP(ad|hone|od)/i.test(platform)
+    || /iPhone|iPad|iPod/i.test(userAgent)
+    || (userAgent.includes("Mac") && maxTouchPoints > 2);
+
+  return Boolean(isIos);
+}
+
 function parseOverride(value) {
   if (!value) {
     return null;
@@ -115,10 +131,18 @@ let viewerContext = {
   currentIndex: 0,
   activityId: null,
   title: "",
+  useCanvas: false,
 };
 
 let onboardingControls = null;
 let lastKnownTicketState = null;
+
+const PREFER_CANVAS_VIEWER = detectCanvasViewerSupport();
+
+let pdfCanvasState = {
+  document: null,
+  source: null,
+};
 
 function ensurePdfJs() {
   if (pdfjsReadyPromise) {
@@ -314,8 +338,139 @@ function setViewerContext(partial) {
     currentIndex: 0,
     activityId: null,
     title: "",
+    useCanvas: false,
     ...partial,
   };
+}
+
+function toggleCanvasViewer(shouldUseCanvas) {
+  const viewer = document.querySelector("[data-pdf-viewer]");
+  if (!viewer) {
+    return;
+  }
+
+  const canvasWrapper = viewer.querySelector("[data-pdf-canvas-container]");
+  const frame = viewer.querySelector("[data-pdf-frame]");
+  if (!canvasWrapper || !frame) {
+    return;
+  }
+
+  if (shouldUseCanvas) {
+    canvasWrapper.hidden = false;
+    frame.setAttribute("hidden", "true");
+    clearCanvasViewer();
+  } else {
+    canvasWrapper.hidden = true;
+    frame.removeAttribute("hidden");
+  }
+}
+
+function clearCanvasViewer() {
+  const viewer = document.querySelector("[data-pdf-viewer]");
+  const canvas = viewer?.querySelector("[data-pdf-canvas]");
+  if (!canvas) {
+    return;
+  }
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return;
+  }
+
+  context.setTransform(1, 0, 0, 1, 0, 0);
+  context.clearRect(0, 0, canvas.width || 0, canvas.height || 0);
+  canvas.removeAttribute("width");
+  canvas.removeAttribute("height");
+  canvas.style.width = "";
+  canvas.style.height = "";
+}
+
+async function ensurePdfDocument(source) {
+  const pdfjs = await ensurePdfJs();
+
+  if (pdfCanvasState.document && pdfCanvasState.source === source) {
+    return pdfCanvasState.document;
+  }
+
+  if (pdfCanvasState.document) {
+    try {
+      await pdfCanvasState.document.destroy();
+    } catch (error) {
+      console.warn("Kon eerder PDF-document niet netjes sluiten", error);
+    }
+    pdfCanvasState = {
+      document: null,
+      source: null,
+    };
+  }
+
+  const loadingTask = pdfjs.getDocument({ url: source });
+  const pdf = await loadingTask.promise;
+  pdfCanvasState = {
+    document: pdf,
+    source,
+  };
+  return pdf;
+}
+
+function resetPdfCanvasState() {
+  if (pdfCanvasState.document) {
+    pdfCanvasState.document.destroy().catch((error) => {
+      console.warn("Kon pdf.js document niet vernietigen", error);
+    });
+  }
+  pdfCanvasState = {
+    document: null,
+    source: null,
+  };
+}
+
+async function renderCanvasPage(pageNumber) {
+  if (!pageNumber || !viewerContext.baseSource) {
+    return;
+  }
+
+  const viewer = document.querySelector("[data-pdf-viewer]");
+  const canvasWrapper = viewer?.querySelector("[data-pdf-canvas-container]");
+  const canvas = canvasWrapper?.querySelector("[data-pdf-canvas]");
+  if (!canvasWrapper || !canvas) {
+    return;
+  }
+
+  try {
+    const pdf = await ensurePdfDocument(viewerContext.baseSource);
+    const page = await pdf.getPage(pageNumber);
+
+    const parentWidth = canvasWrapper.clientWidth || viewer?.clientWidth || window.innerWidth || 640;
+    const baseViewport = page.getViewport({ scale: 1 });
+    const maxTargetWidth = Math.min(parentWidth, 920);
+    const scale = Math.max(Math.min(maxTargetWidth / baseViewport.width, 2.5), 0.6);
+    const viewport = page.getViewport({ scale });
+    const pixelRatio = window.devicePixelRatio || 1;
+
+    canvas.width = Math.floor(viewport.width * pixelRatio);
+    canvas.height = Math.floor(viewport.height * pixelRatio);
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) {
+      return;
+    }
+
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    context.clearRect(0, 0, viewport.width, viewport.height);
+
+    const renderTask = page.render({
+      canvasContext: context,
+      viewport,
+      intent: "display",
+    });
+
+    await renderTask.promise;
+  } catch (error) {
+    console.error("Kon PDF-pagina niet renderen", error);
+  }
 }
 
 function updateViewerNavigation() {
@@ -354,6 +509,15 @@ function setViewerPage(index) {
   viewerContext.currentIndex = clampedIndex;
   const page = viewerContext.pages[clampedIndex];
 
+  updateViewerNavigation();
+
+  if (viewerContext.useCanvas) {
+    renderCanvasPage(page).catch((error) => {
+      console.error("Kon canvasweergave niet bijwerken", error);
+    });
+    return;
+  }
+
   let src = viewerContext.baseSource;
   if (page) {
     src = withPageFragment(viewerContext.baseSource, page);
@@ -378,8 +542,6 @@ function setViewerPage(index) {
   newFrame.dataset.currentSrc = src;
 
   frame.replaceWith(newFrame);
-
-  updateViewerNavigation();
 }
 
 function navigateViewer(delta) {
@@ -788,17 +950,23 @@ function showPdfViewer(pdfUrl, title, activityId = null) {
           .sort((a, b) => a - b)
       : [];
 
+  const useCanvasViewer = PREFER_CANVAS_VIEWER && pageNumbers.length > 0;
+
   setViewerContext({
     baseSource,
     pages: pageNumbers,
     currentIndex: 0,
     activityId,
     title,
+    useCanvas: useCanvasViewer,
   });
+
+  toggleCanvasViewer(useCanvasViewer);
 
   if (pageNumbers.length) {
     setViewerPage(0);
   } else {
+    toggleCanvasViewer(false);
     const parent = frame.parentElement;
     if (parent) {
       const newFrame = document.createElement("embed");
@@ -844,6 +1012,9 @@ function hidePdfViewer() {
   frame.src = "";
   frame.setAttribute("src", "");
   delete frame.dataset.currentSrc;
+  toggleCanvasViewer(false);
+  clearCanvasViewer();
+  resetPdfCanvasState();
   viewer.classList.add("is-hidden");
   viewer.setAttribute("aria-hidden", "true");
   const uploadModal = document.querySelector("[data-upload-modal]");
