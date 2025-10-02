@@ -4360,3 +4360,67 @@ dialog :link{
     display:none;
   }
 }
+
+@media all and (max-width: 500px){
+  #toolbarViewer{
+    display:flex;
+    flex-direction:column;
+    align-items:stretch;
+    justify-content:center;
+    gap:4px;
+    height:auto;
+    padding-block:4px;
+  }
+
+  #toolbarViewerLeft,
+  #toolbarViewerMiddle,
+  #toolbarViewerRight{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:100%;
+    float:none;
+  }
+
+  #toolbarViewerLeft{
+    order:1;
+  }
+
+  #toolbarViewerMiddle{
+    order:2;
+    margin:0;
+    left:auto;
+    position:relative;
+    transform:none;
+  }
+
+  #toolbarViewerRight{
+    order:3;
+  }
+
+  #toolbarViewerLeft > *,
+  #toolbarViewerMiddle > *,
+  #toolbarViewerRight > *{
+    float:none;
+  }
+
+  #toolbarViewerMiddle .splitToolbarButton{
+    width:100%;
+    display:flex;
+  }
+
+  #toolbarViewerMiddle .splitToolbarButton > .toolbarButton{
+    flex:1 1 50%;
+    justify-content:center;
+    display:flex;
+    align-items:center;
+    width:100%;
+  }
+
+  #editorModeButtons,
+  #print,
+  #download,
+  #secondaryToolbarToggle{
+    display:none;
+  }
+}
