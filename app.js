@@ -419,7 +419,7 @@ function applyPendingViewerPage() {
     }
   };
 
-  if (app.pdfViewer?.pagesCount) {
+  if (app.isInitialViewSet && app.pdfViewer?.pagesCount) {
     attemptSetPage();
     return;
   }
@@ -432,7 +432,7 @@ function applyPendingViewerPage() {
     const onceHandler = () => {
       attemptSetPage();
       if (typeof app.eventBus?.off === "function") {
-        app.eventBus.off("initialviewset", onceHandler);
+        app.eventBus.off("documentinit", onceHandler);
         app.eventBus.off("pagesloaded", onceHandler);
       }
       if (app._frnightPendingPageHandler === onceHandler) {
@@ -442,7 +442,7 @@ function applyPendingViewerPage() {
 
     app._frnightPendingPageHandler = onceHandler;
     const onceOptions = { once: true };
-    app.eventBus.on("initialviewset", onceHandler, onceOptions);
+    app.eventBus.on("documentinit", onceHandler, onceOptions);
     app.eventBus.on("pagesloaded", onceHandler, onceOptions);
   }
 }
