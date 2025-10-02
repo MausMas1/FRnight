@@ -3,6 +3,13 @@ const UPLOAD_STORAGE_KEY = "frnight-uploaded-ticket";
 const NOW_OVERRIDE_KEY = "frnight-now-override";
 
 const FALLBACK_PDF = "assets/frnight-placeholder.pdf";
+// left/top waarden zijn CSS-pixels; een grote left (bijv. 9999) scrolt na renderen
+// van de pagina effectief naar de rechterrand in PDF.js.
+const DEFAULT_VIEWPORT = {
+  zoom: "150",
+  left: "9999",
+  top: "0",
+};
 
 const defaultActivities = [
   {
@@ -392,15 +399,33 @@ function applyPendingViewerPage() {
   }
 
   const desiredPage = viewerContext.pendingPageNumber;
+  const isAlreadyOnPage = () => {
+    const current =
+      typeof app.pdfViewer?.currentPageNumber === "number"
+        ? app.pdfViewer.currentPageNumber
+        : typeof app.page === "number"
+          ? app.page
+          : null;
+    return current === desiredPage;
+  };
 
   const setPage = () => {
     try {
+      if (isAlreadyOnPage()) {
+        viewerContext.pendingPageNumber = null;
+        return;
+      }
       app.page = desiredPage;
       viewerContext.pendingPageNumber = null;
     } catch (error) {
       console.warn("Kon pagina niet instellen in viewer", error);
     }
   };
+
+  if (isAlreadyOnPage()) {
+    viewerContext.pendingPageNumber = null;
+    return;
+  }
 
   if (app.pdfViewer?.pagesCount) {
     setPage();
@@ -409,6 +434,10 @@ function applyPendingViewerPage() {
 
   if (app.eventBus) {
     const onceHandler = () => {
+      if (isAlreadyOnPage()) {
+        viewerContext.pendingPageNumber = null;
+        return;
+      }
       setPage();
     };
     app.eventBus.on("pagesloaded", onceHandler, { once: true });
@@ -841,7 +870,20 @@ async function showPdfViewer(pdfUrl, title, activityId = null) {
   const viewerUrl = new URL("assets/pdfjs/web/viewer.html", window.location.href);
   viewerUrl.searchParams.set("file", baseSource);
   if (pageNumbers.length > 0) {
-    viewerUrl.hash = `page=${pageNumbers[0]}`;
+    const hasViewport =
+      typeof DEFAULT_VIEWPORT !== "undefined" &&
+      DEFAULT_VIEWPORT &&
+      typeof DEFAULT_VIEWPORT.zoom !== "undefined";
+
+    if (
+      hasViewport &&
+      typeof DEFAULT_VIEWPORT.left !== "undefined" &&
+      typeof DEFAULT_VIEWPORT.top !== "undefined"
+    ) {
+      viewerUrl.hash = `page=${pageNumbers[0]}&zoom=${DEFAULT_VIEWPORT.zoom},${DEFAULT_VIEWPORT.left},${DEFAULT_VIEWPORT.top}`;
+    } else {
+      viewerUrl.hash = `page=${pageNumbers[0]}`;
+    }
   } else {
     viewerUrl.hash = "";
   }
