@@ -398,6 +398,50 @@ function applyPendingViewerPage() {
     return;
   }
 
+  const applyDefaultViewport = () => {
+    const pdfViewer = app?.pdfViewer;
+    if (!pdfViewer) {
+      console.warn("Kon viewer viewport niet toepassen: pdfViewer ontbreekt");
+      return;
+    }
+
+    try {
+      if (DEFAULT_VIEWPORT?.zoom != null) {
+        pdfViewer.currentScaleValue = DEFAULT_VIEWPORT.zoom;
+      }
+    } catch (error) {
+      console.warn("Kon zoomniveau niet instellen in viewer", error);
+    }
+
+    const container = pdfViewer?.container;
+    if (!container) {
+      console.warn("Kon viewer viewport niet toepassen: container ontbreekt");
+      return;
+    }
+
+    const parsedLeft = Number.parseFloat(DEFAULT_VIEWPORT?.left);
+    if (Number.isFinite(parsedLeft)) {
+      try {
+        container.scrollLeft = parsedLeft;
+      } catch (error) {
+        console.warn("Kon horizontale positie niet instellen in viewer", error);
+      }
+    } else {
+      console.warn("Kon viewer viewport niet toepassen: ongeldige left-waarde");
+    }
+
+    const parsedTop = Number.parseFloat(DEFAULT_VIEWPORT?.top);
+    if (Number.isFinite(parsedTop)) {
+      try {
+        container.scrollTop = parsedTop;
+      } catch (error) {
+        console.warn("Kon verticale positie niet instellen in viewer", error);
+      }
+    } else {
+      console.warn("Kon viewer viewport niet toepassen: ongeldige top-waarde");
+    }
+  };
+
   const attemptSetPage = () => {
     if (!viewerContext.pendingPageNumber) {
       return;
@@ -413,6 +457,11 @@ function applyPendingViewerPage() {
       }
 
       app.page = desiredPage;
+      try {
+        applyDefaultViewport();
+      } catch (error) {
+        console.warn("Kon standaardviewport niet toepassen", error);
+      }
       viewerContext.pendingPageNumber = null;
     } catch (error) {
       console.warn("Kon pagina niet instellen in viewer", error);
