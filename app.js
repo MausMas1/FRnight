@@ -398,9 +398,12 @@ function applyPendingViewerPage() {
     return;
   }
 
-  const desiredPage = viewerContext.pendingPageNumber;
+  const attemptSetPage = () => {
+    if (!viewerContext.pendingPageNumber) {
+      return;
+    }
 
-  const setPage = () => {
+    const desiredPage = viewerContext.pendingPageNumber;
     try {
       const currentPage =
         typeof app.page === "number" ? app.page : app.pdfViewer?.currentPageNumber;
@@ -408,6 +411,7 @@ function applyPendingViewerPage() {
         viewerContext.pendingPageNumber = null;
         return;
       }
+
       app.page = desiredPage;
       viewerContext.pendingPageNumber = null;
     } catch (error) {
@@ -416,15 +420,30 @@ function applyPendingViewerPage() {
   };
 
   if (app.pdfViewer?.pagesCount) {
-    setPage();
+    attemptSetPage();
     return;
   }
 
-  if (app.eventBus) {
+  if (!app.eventBus) {
+    return;
+  }
+
+  if (!app._frnightPendingPageHandler) {
     const onceHandler = () => {
-      setPage();
+      attemptSetPage();
+      if (typeof app.eventBus?.off === "function") {
+        app.eventBus.off("initialviewset", onceHandler);
+        app.eventBus.off("pagesloaded", onceHandler);
+      }
+      if (app._frnightPendingPageHandler === onceHandler) {
+        delete app._frnightPendingPageHandler;
+      }
     };
-    app.eventBus.on("pagesloaded", onceHandler, { once: true });
+
+    app._frnightPendingPageHandler = onceHandler;
+    const onceOptions = { once: true };
+    app.eventBus.on("initialviewset", onceHandler, onceOptions);
+    app.eventBus.on("pagesloaded", onceHandler, onceOptions);
   }
 }
 
