@@ -108,10 +108,14 @@
             </button>
           </div>
         </div>
-        <div class="pdf-viewer__canvas" data-pdf-canvas-container hidden>
-          <canvas data-pdf-canvas aria-label="PDF weergave"></canvas>
+        <div class="pdf-viewer__frame">
+          <iframe
+            src="about:blank"
+            title="Activiteit PDF"
+            data-pdf-iframe
+            allow="fullscreen"
+          ></iframe>
         </div>
-        <embed src="" type="application/pdf" title="Activiteit PDF" data-pdf-frame />
       </div>
     </div>
     <div class="upload-modal is-hidden" data-upload-modal aria-hidden="true">
