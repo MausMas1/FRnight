@@ -6,7 +6,7 @@ const FALLBACK_PDF = "assets/frnight-placeholder.pdf";
 // left/top waarden zijn CSS-pixels; een grote left (bijv. 9999) scrolt na renderen
 // van de pagina effectief naar de rechterrand in PDF.js.
 const DEFAULT_VIEWPORT = {
-  zoom: "150",
+  zoom: "170",
   left: "9999",
   top: "0",
 };
