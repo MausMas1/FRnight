@@ -402,6 +402,12 @@ function applyPendingViewerPage() {
 
   const setPage = () => {
     try {
+      const currentPage =
+        typeof app.page === "number" ? app.page : app.pdfViewer?.currentPageNumber;
+      if (currentPage === desiredPage) {
+        viewerContext.pendingPageNumber = null;
+        return;
+      }
       app.page = desiredPage;
       viewerContext.pendingPageNumber = null;
     } catch (error) {
