@@ -420,25 +420,37 @@ function applyPendingViewerPage() {
     }
 
     const parsedLeft = Number.parseFloat(DEFAULT_VIEWPORT?.left);
-    if (Number.isFinite(parsedLeft)) {
+    const parsedTop = Number.parseFloat(DEFAULT_VIEWPORT?.top);
+
+    const scheduleScrollUpdate = () => {
       try {
-        container.scrollLeft = parsedLeft;
+        if (Number.isFinite(parsedLeft)) {
+          container.scrollLeft = parsedLeft;
+        }
+        if (Number.isFinite(parsedTop)) {
+          container.scrollTop = parsedTop;
+        }
       } catch (error) {
-        console.warn("Kon horizontale positie niet instellen in viewer", error);
+        console.warn("Kon viewer scrollpositie niet instellen", error);
       }
+    };
+
+    if (Number.isFinite(parsedLeft)) {
+      scheduleScrollUpdate();
     } else {
       console.warn("Kon viewer viewport niet toepassen: ongeldige left-waarde");
     }
 
-    const parsedTop = Number.parseFloat(DEFAULT_VIEWPORT?.top);
     if (Number.isFinite(parsedTop)) {
-      try {
-        container.scrollTop = parsedTop;
-      } catch (error) {
-        console.warn("Kon verticale positie niet instellen in viewer", error);
-      }
+      scheduleScrollUpdate();
     } else {
       console.warn("Kon viewer viewport niet toepassen: ongeldige top-waarde");
+    }
+
+    if (Number.isFinite(parsedLeft) || Number.isFinite(parsedTop)) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(scheduleScrollUpdate);
+      });
     }
   };
 
