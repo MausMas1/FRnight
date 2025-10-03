@@ -4,12 +4,32 @@ const NOW_OVERRIDE_KEY = "frnight-now-override";
 
 const FALLBACK_PDF = "assets/frnight-placeholder.pdf";
 // left/top waarden zijn CSS-pixels; een grote left (bijv. 9999) scrolt na renderen
-// van de pagina effectief naar de rechterrand in PDF.js.
+// van de pagina effectief naar de rechterrand in PDF.js. Alle waarden mogen ook
+// als array worden opgegeven om per ticketpagina een andere instelling te kiezen.
 const DEFAULT_VIEWPORT = {
-  zoom: "190",
-  left: "9999",
-  top: "0",
+  zoom: ["190", "page-width"],
+  left: ["9999", "0"],
+  top: ["0", "0"],
 };
+
+function resolveViewportValue(value, index) {
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return undefined;
+    }
+    const clampedIndex = Math.max(0, Math.min(index, value.length - 1));
+    return value[clampedIndex];
+  }
+  return value;
+}
+
+function isBlankViewportValue(value) {
+  return (
+    value === null ||
+    typeof value === "undefined" ||
+    (typeof value === "string" && value.trim().length === 0)
+  );
+}
 
 const defaultActivities = [
   {
@@ -406,8 +426,12 @@ function applyPendingViewerPage() {
     }
 
     try {
-      if (DEFAULT_VIEWPORT?.zoom != null) {
-        pdfViewer.currentScaleValue = DEFAULT_VIEWPORT.zoom;
+      const zoomValue = resolveViewportValue(
+        DEFAULT_VIEWPORT?.zoom,
+        viewerContext.currentIndex,
+      );
+      if (!isBlankViewportValue(zoomValue)) {
+        pdfViewer.currentScaleValue = zoomValue;
       }
     } catch (error) {
       console.warn("Kon zoomniveau niet instellen in viewer", error);
@@ -419,25 +443,33 @@ function applyPendingViewerPage() {
       return;
     }
 
-    const parsedLeft = Number.parseFloat(DEFAULT_VIEWPORT?.left);
+    const leftValue = resolveViewportValue(
+      DEFAULT_VIEWPORT?.left,
+      viewerContext.currentIndex,
+    );
+    const parsedLeft = Number.parseFloat(leftValue);
     if (Number.isFinite(parsedLeft)) {
       try {
         container.scrollLeft = parsedLeft;
       } catch (error) {
         console.warn("Kon horizontale positie niet instellen in viewer", error);
       }
-    } else {
+    } else if (!isBlankViewportValue(leftValue) && leftValue !== "auto") {
       console.warn("Kon viewer viewport niet toepassen: ongeldige left-waarde");
     }
 
-    const parsedTop = Number.parseFloat(DEFAULT_VIEWPORT?.top);
+    const topValue = resolveViewportValue(
+      DEFAULT_VIEWPORT?.top,
+      viewerContext.currentIndex,
+    );
+    const parsedTop = Number.parseFloat(topValue);
     if (Number.isFinite(parsedTop)) {
       try {
         container.scrollTop = parsedTop;
       } catch (error) {
         console.warn("Kon verticale positie niet instellen in viewer", error);
       }
-    } else {
+    } else if (!isBlankViewportValue(topValue) && topValue !== "auto") {
       console.warn("Kon viewer viewport niet toepassen: ongeldige top-waarde");
     }
   };
@@ -922,17 +954,19 @@ async function showPdfViewer(pdfUrl, title, activityId = null) {
   const viewerUrl = new URL("assets/pdfjs/web/viewer.html", window.location.href);
   viewerUrl.searchParams.set("file", baseSource);
   if (pageNumbers.length > 0) {
-    const hasViewport =
-      typeof DEFAULT_VIEWPORT !== "undefined" &&
-      DEFAULT_VIEWPORT &&
-      typeof DEFAULT_VIEWPORT.zoom !== "undefined";
+    const zoomParam = resolveViewportValue(DEFAULT_VIEWPORT?.zoom, 0);
+    const leftParam = resolveViewportValue(DEFAULT_VIEWPORT?.left, 0);
+    const topParam = resolveViewportValue(DEFAULT_VIEWPORT?.top, 0);
 
-    if (
-      hasViewport &&
-      typeof DEFAULT_VIEWPORT.left !== "undefined" &&
-      typeof DEFAULT_VIEWPORT.top !== "undefined"
-    ) {
-      viewerUrl.hash = `page=${pageNumbers[0]}&zoom=${DEFAULT_VIEWPORT.zoom},${DEFAULT_VIEWPORT.left},${DEFAULT_VIEWPORT.top}`;
+    const hasZoom = !isBlankViewportValue(zoomParam);
+    const parsedLeft = Number.parseFloat(leftParam);
+    const parsedTop = Number.parseFloat(topParam);
+    const hasOffsets = Number.isFinite(parsedLeft) && Number.isFinite(parsedTop);
+
+    if (hasZoom && hasOffsets) {
+      viewerUrl.hash = `page=${pageNumbers[0]}&zoom=${zoomParam},${parsedLeft},${parsedTop}`;
+    } else if (hasZoom) {
+      viewerUrl.hash = `page=${pageNumbers[0]}&zoom=${zoomParam}`;
     } else {
       viewerUrl.hash = `page=${pageNumbers[0]}`;
     }
