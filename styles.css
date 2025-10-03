@@ -381,9 +381,11 @@ main {
   margin-top: 1.5rem;
   display: flex;
   justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.calendar__upload {
+.calendar__action-btn {
   padding: 0.4rem 1.05rem;
   border-radius: 999px;
   border: 1px solid rgba(249, 114, 22, 0.5);
@@ -397,8 +399,8 @@ main {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
-.calendar__upload:focus-visible,
-.calendar__upload:hover {
+.calendar__action-btn:focus-visible,
+.calendar__action-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 26px rgba(249, 114, 22, 0.28);
   border-color: rgba(249, 114, 22, 0.75);

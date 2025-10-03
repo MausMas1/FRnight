@@ -1091,12 +1091,52 @@ function setupUploadFlow() {
   });
 }
 
+function setupOriginalFileButton() {
+  const button = document.querySelector("[data-view-original]");
+  if (!(button instanceof HTMLElement)) {
+    return;
+  }
+
+  button.addEventListener("click", () => {
+    const storedTicket = loadStoredTicket();
+    if (!storedTicket) {
+      return;
+    }
+
+    let source = storedTicket.dataUrl || "";
+    if (!source) {
+      return;
+    }
+
+    if (source.startsWith("data:")) {
+      try {
+        source = getObjectUrlForDataUrl(source);
+      } catch (error) {
+        console.error("Kon data-URL niet voorbereiden voor weergave", error);
+        return;
+      }
+    }
+
+    const anchor = document.createElement("a");
+    anchor.href = source;
+    anchor.target = "_blank";
+    anchor.rel = "noopener";
+    anchor.style.display = "none";
+    document.body.append(anchor);
+    anchor.click();
+    window.setTimeout(() => {
+      anchor.remove();
+    }, 0);
+  });
+}
+
 function syncUiState() {
   const storedTicket = loadStoredTicket();
   const hasTicket = Boolean(storedTicket);
   const onboarding = document.querySelector("[data-onboarding]");
   const calendar = document.querySelector("[data-calendar]");
   const calendarTrigger = document.querySelector("[data-calendar-upload]");
+  const viewOriginalButton = document.querySelector("[data-view-original]");
 
   if (lastKnownTicketState !== hasTicket) {
     if (!hasTicket) {
@@ -1116,6 +1156,9 @@ function syncUiState() {
   }
   if (calendarTrigger instanceof HTMLElement) {
     calendarTrigger.hidden = !hasTicket;
+  }
+  if (viewOriginalButton instanceof HTMLElement) {
+    viewOriginalButton.hidden = !hasTicket;
   }
 }
 
@@ -1140,6 +1183,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupPdfViewer();
   setupOnboardingFlow();
   setupUploadFlow();
+  setupOriginalFileButton();
   syncUiState();
   activateBatBubble();
 
