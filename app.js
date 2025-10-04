@@ -1283,10 +1283,10 @@ function setupWaitTimesWidget() {
         if (typeof wait === "number" && Number.isFinite(wait) && wait >= 0) {
           return wait;
         }
-        return Number.POSITIVE_INFINITY;
+        return Number.NEGATIVE_INFINITY;
       };
 
-      const waitDiff = normalizeWait(a) - normalizeWait(b);
+      const waitDiff = normalizeWait(b) - normalizeWait(a);
       if (waitDiff !== 0) {
         return waitDiff;
       }
