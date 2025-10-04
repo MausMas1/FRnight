@@ -143,6 +143,55 @@
         <p class="upload-modal__feedback" data-upload-feedback aria-live="polite"></p>
       </form>
     </div>
+    <button
+      type="button"
+      class="wait-times-button"
+      data-waittimes-open
+      aria-haspopup="dialog"
+      aria-expanded="false"
+      aria-controls="wait-times-modal"
+    >
+      <span class="wait-times-button__icon" aria-hidden="true">👻</span>
+      <span class="wait-times-button__label">Wachttijden</span>
+      <span class="visually-hidden">Toon wachttijden Walibi Holland</span>
+    </button>
+    <div
+      class="wait-times-modal is-hidden"
+      data-waittimes-modal
+      id="wait-times-modal"
+      aria-hidden="true"
+    >
+      <div class="wait-times-modal__backdrop" data-waittimes-close></div>
+      <div
+        class="wait-times-modal__dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="wait-times-title"
+        tabindex="-1"
+        data-waittimes-dialog
+      >
+        <header class="wait-times-modal__header">
+          <h2 class="wait-times-modal__title" id="wait-times-title">Wachttijden Walibi Holland</h2>
+          <button
+            type="button"
+            class="wait-times-modal__close"
+            data-waittimes-close
+            aria-label="Sluiten"
+          >
+            &times;
+          </button>
+        </header>
+        <p class="wait-times__status" data-waittimes-status role="status"></p>
+        <p class="wait-times__updated" data-waittimes-updated></p>
+        <div class="wait-times__content" data-waittimes-content></div>
+        <p class="wait-times__disclaimer">
+          Powered by
+          <a href="https://queue-times.com/en-US" target="_blank" rel="noopener"
+            >Queue-Times.com</a
+          >
+        </p>
+      </div>
+    </div>
     <script src="app.js" type="module"></script>
   </body>
 </html>
