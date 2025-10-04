@@ -11,6 +11,10 @@ const DEFAULT_VIEWPORT = {
   top: "0",
 };
 
+const WALIBI_PARK_ID = 53;
+const WAIT_TIMES_ENDPOINT = `https://queue-times.com/parks/${WALIBI_PARK_ID}/queue_times.json`;
+const WAIT_TIMES_REFRESH_MS = 5 * 60 * 1000;
+
 const defaultActivities = [
   {
     id: "below",
@@ -306,6 +310,27 @@ function resetCachedTicketObjectUrl() {
     cachedTicketObjectUrl = null;
   }
   cachedTicketDataUrl = null;
+}
+
+function isPdfViewerOpen() {
+  const viewer = document.querySelector("[data-pdf-viewer]");
+  return Boolean(viewer && !viewer.classList.contains("is-hidden"));
+}
+
+function isUploadModalOpen() {
+  const modal = document.querySelector("[data-upload-modal]");
+  return Boolean(modal && !modal.classList.contains("is-hidden"));
+}
+
+function isWaitTimesModalOpen() {
+  const modal = document.querySelector("[data-waittimes-modal]");
+  return Boolean(modal && !modal.classList.contains("is-hidden"));
+}
+
+function restoreBodyScrollIfNoOverlay() {
+  if (!isPdfViewerOpen() && !isUploadModalOpen() && !isWaitTimesModalOpen()) {
+    document.body.style.overflow = "";
+  }
 }
 
 function setViewerContext(partial) {
@@ -913,11 +938,7 @@ function hidePdfViewer() {
   viewerContext.iframeWindow = null;
   viewer.classList.add("is-hidden");
   viewer.setAttribute("aria-hidden", "true");
-  const uploadModal = document.querySelector("[data-upload-modal]");
-  const uploadOpen = uploadModal && !uploadModal.classList.contains("is-hidden");
-  if (!uploadOpen) {
-    document.body.style.overflow = "";
-  }
+  restoreBodyScrollIfNoOverlay();
 
   setViewerContext({});
   updateViewerNavigation();
@@ -978,11 +999,6 @@ function setupUploadFlow() {
     feedback.classList.toggle("is-error", variant === "error");
   };
 
-  const isPdfViewerOpen = () => {
-    const viewer = document.querySelector("[data-pdf-viewer]");
-    return viewer && !viewer.classList.contains("is-hidden");
-  };
-
   const openModal = () => {
     const stored = loadStoredTicket();
     if (stored) {
@@ -1013,9 +1029,7 @@ function setupUploadFlow() {
 
     modal.classList.add("is-hidden");
     modal.setAttribute("aria-hidden", "true");
-    if (!isPdfViewerOpen()) {
-      document.body.style.overflow = "";
-    }
+    restoreBodyScrollIfNoOverlay();
     form?.reset();
     setFeedback("", "info");
     focusReturnTarget();
@@ -1173,6 +1187,333 @@ function activateBatBubble() {
   luckyBat.classList.add("bat--with-bubble");
 }
 
+function setupWaitTimesWidget() {
+  const trigger = document.querySelector("[data-waittimes-open]");
+  const modal = document.querySelector("[data-waittimes-modal]");
+  if (!(trigger instanceof HTMLElement) || !modal) {
+    return;
+  }
+
+  const dialog = modal.querySelector("[data-waittimes-dialog]");
+  const content = modal.querySelector("[data-waittimes-content]");
+  const statusElement = modal.querySelector("[data-waittimes-status]");
+  const updatedElement = modal.querySelector("[data-waittimes-updated]");
+  const closeElements = modal.querySelectorAll("[data-waittimes-close]");
+
+  let refreshTimer = null;
+  let isFetching = false;
+  let hasRendered = false;
+  let lastFocusTarget = trigger;
+
+  const setStatus = (message, variant = "info") => {
+    if (!(statusElement instanceof HTMLElement)) {
+      return;
+    }
+
+    if (!message || !message.trim()) {
+      statusElement.textContent = "";
+      delete statusElement.dataset.variant;
+      return;
+    }
+
+    statusElement.textContent = message;
+    statusElement.dataset.variant = variant;
+  };
+
+  const formatTimeLabel = (value) => {
+    if (!value) {
+      return null;
+    }
+
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+
+    return null;
+  };
+
+  const flattenRides = (payload) => {
+    if (!payload || typeof payload !== "object") {
+      return [];
+    }
+
+    const fromLands = Array.isArray(payload.lands)
+      ? payload.lands.flatMap((land) => (Array.isArray(land?.rides) ? land.rides : []))
+      : [];
+    const direct = Array.isArray(payload.rides) ? payload.rides : [];
+    const combined = [...fromLands, ...direct].filter((ride) => ride && typeof ride === "object");
+
+    const seen = new Set();
+    const result = [];
+    for (const ride of combined) {
+      const identifier =
+        (ride.id && String(ride.id)) ||
+        (ride.ride_id && String(ride.ride_id)) ||
+        (ride.slug && String(ride.slug)) ||
+        (ride.name && String(ride.name));
+
+      if (identifier && seen.has(identifier)) {
+        continue;
+      }
+      if (identifier) {
+        seen.add(identifier);
+      }
+      result.push(ride);
+    }
+
+    return result;
+  };
+
+  const sortRides = (rides) => {
+    return [...rides].sort((a, b) => {
+      const aOpen = Boolean(a?.is_open);
+      const bOpen = Boolean(b?.is_open);
+      if (aOpen !== bOpen) {
+        return aOpen ? -1 : 1;
+      }
+
+      const normalizeWait = (ride) => {
+        const wait = ride?.wait_time;
+        if (typeof wait === "number" && Number.isFinite(wait) && wait >= 0) {
+          return wait;
+        }
+        return Number.POSITIVE_INFINITY;
+      };
+
+      const waitDiff = normalizeWait(a) - normalizeWait(b);
+      if (waitDiff !== 0) {
+        return waitDiff;
+      }
+
+      const aName = typeof a?.name === "string" ? a.name : "";
+      const bName = typeof b?.name === "string" ? b.name : "";
+      return aName.localeCompare(bName, "nl-NL", { sensitivity: "base" });
+    });
+  };
+
+  const renderWaitTimes = (rides) => {
+    if (!(content instanceof HTMLElement)) {
+      return;
+    }
+
+    content.innerHTML = "";
+    if (!rides.length) {
+      const empty = document.createElement("p");
+      empty.className = "wait-times__empty";
+      empty.textContent = "Geen wachttijden gevonden.";
+      content.append(empty);
+      return;
+    }
+
+    const list = document.createElement("ul");
+    list.className = "wait-times__list";
+
+    const sorted = sortRides(rides);
+    for (const ride of sorted) {
+      const item = document.createElement("li");
+      item.className = "wait-times__item";
+
+      const header = document.createElement("div");
+      header.className = "wait-times__item-header";
+
+      const name = document.createElement("span");
+      name.className = "wait-times__item-name";
+      name.textContent = typeof ride?.name === "string" ? ride.name : "Onbekende attractie";
+
+      const badge = document.createElement("span");
+      badge.className = "wait-times__badge";
+      const statusLabel =
+        ride?.is_open
+          ? "Open"
+          : typeof ride?.status === "string" && ride.status.trim()
+            ? ride.status.trim()
+            : "Gesloten";
+      badge.classList.add(ride?.is_open ? "is-open" : "is-closed");
+      badge.textContent = statusLabel;
+
+      header.append(name, badge);
+
+      const meta = document.createElement("div");
+      meta.className = "wait-times__item-meta";
+
+      const waitLabel = document.createElement("span");
+      waitLabel.className = "wait-times__time";
+      if (typeof ride?.wait_time === "number" && Number.isFinite(ride.wait_time) && ride.wait_time >= 0) {
+        waitLabel.textContent = `${ride.wait_time} min`;
+      } else if (typeof ride?.wait_time === "string" && ride.wait_time.trim()) {
+        waitLabel.textContent = ride.wait_time.trim();
+      } else {
+        waitLabel.textContent = ride?.is_open ? "Onbekend" : "—";
+      }
+
+      const updated = document.createElement("span");
+      updated.className = "wait-times__updated";
+      const rideUpdate = formatTimeLabel(ride?.last_updated);
+      updated.textContent = rideUpdate ? `Laatste update: ${rideUpdate}` : "Laatste update onbekend";
+
+      meta.append(waitLabel, updated);
+      item.append(header, meta);
+      list.append(item);
+    }
+
+    content.append(list);
+  };
+
+  const formatUpdatedLabel = (payload) => {
+    if (!(updatedElement instanceof HTMLElement)) {
+      return;
+    }
+
+    const candidates = [];
+    if (payload && typeof payload === "object") {
+      if (typeof payload.last_updated === "string") {
+        candidates.push(payload.last_updated);
+      }
+      if (typeof payload.last_update === "string") {
+        candidates.push(payload.last_update);
+      }
+      if (typeof payload.generated_at === "string") {
+        candidates.push(payload.generated_at);
+      }
+      if (payload.status && typeof payload.status === "object") {
+        if (typeof payload.status.generated_at === "string") {
+          candidates.push(payload.status.generated_at);
+        }
+        if (typeof payload.status.timestamp === "string") {
+          candidates.push(payload.status.timestamp);
+        }
+      }
+    }
+
+    for (const candidate of candidates) {
+      const label = formatTimeLabel(candidate);
+      if (label) {
+        updatedElement.textContent = `Bijgewerkt: ${label}`;
+        return;
+      }
+    }
+
+    updatedElement.textContent = `Bijgewerkt: ${new Date().toLocaleTimeString("nl-NL", {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  };
+
+  const refreshWaitTimes = async () => {
+    if (isFetching) {
+      return;
+    }
+    isFetching = true;
+
+    if (!hasRendered) {
+      setStatus("Wachttijden laden...", "loading");
+    }
+
+    try {
+      const response = await fetch(WAIT_TIMES_ENDPOINT, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const payload = await response.json();
+      const rides = flattenRides(payload);
+      renderWaitTimes(rides);
+      formatUpdatedLabel(payload);
+      setStatus("", "info");
+      hasRendered = true;
+    } catch (error) {
+      console.error("Kon wachttijden niet laden", error);
+      if (!hasRendered && content instanceof HTMLElement) {
+        content.innerHTML = "";
+      }
+      const message = hasRendered
+        ? "Kon wachttijden niet verversen."
+        : "Kon wachttijden niet laden.";
+      setStatus(message, "error");
+      if (updatedElement instanceof HTMLElement) {
+        updatedElement.textContent = "";
+      }
+    } finally {
+      isFetching = false;
+    }
+  };
+
+  const openModal = () => {
+    if (isWaitTimesModalOpen()) {
+      return;
+    }
+
+    if (document.activeElement instanceof HTMLElement) {
+      lastFocusTarget = document.activeElement;
+    }
+
+    modal.classList.remove("is-hidden");
+    modal.setAttribute("aria-hidden", "false");
+    trigger.setAttribute("aria-expanded", "true");
+    document.body.style.overflow = "hidden";
+
+    window.clearInterval(refreshTimer);
+    refreshTimer = window.setInterval(refreshWaitTimes, WAIT_TIMES_REFRESH_MS);
+    refreshWaitTimes();
+
+    if (dialog instanceof HTMLElement) {
+      dialog.focus({ preventScroll: true });
+    }
+  };
+
+  const closeModal = () => {
+    if (!isWaitTimesModalOpen()) {
+      return;
+    }
+
+    window.clearInterval(refreshTimer);
+    refreshTimer = null;
+
+    modal.classList.add("is-hidden");
+    modal.setAttribute("aria-hidden", "true");
+    trigger.setAttribute("aria-expanded", "false");
+    restoreBodyScrollIfNoOverlay();
+
+    const target =
+      lastFocusTarget instanceof HTMLElement && document.body.contains(lastFocusTarget)
+        ? lastFocusTarget
+        : trigger;
+    window.setTimeout(() => {
+      try {
+        target.focus({ preventScroll: true });
+      } catch (error) {
+        target.focus();
+      }
+    }, 0);
+  };
+
+  trigger.addEventListener("click", () => {
+    if (isWaitTimesModalOpen()) {
+      closeModal();
+    } else {
+      openModal();
+    }
+  });
+
+  closeElements.forEach((element) => {
+    element.addEventListener("click", () => {
+      closeModal();
+    });
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && isWaitTimesModalOpen()) {
+      event.preventDefault();
+      closeModal();
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   const activities = loadActivities();
   renderActivities(activities);
@@ -1184,6 +1525,7 @@ document.addEventListener("DOMContentLoaded", () => {
   setupOnboardingFlow();
   setupUploadFlow();
   setupOriginalFileButton();
+  setupWaitTimesWidget();
   syncUiState();
   activateBatBubble();
 
