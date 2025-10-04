@@ -12,13 +12,9 @@ const DEFAULT_VIEWPORT = {
 };
 
 const WALIBI_PARK_ID = 53;
-const WAIT_TIMES_ENDPOINT = `https://queue-times.com/parks/${WALIBI_PARK_ID}/queue_times.json`;
-const WAIT_TIMES_REFRESH_MS = 5 * 60 * 1000;
-const WAIT_TIMES_SOURCE_ENDPOINTS = [
-  WAIT_TIMES_ENDPOINT,
-  `https://api.allorigins.win/raw?url=${encodeURIComponent(WAIT_TIMES_ENDPOINT)}`,
-  `https://r.jina.ai/https://queue-times.com/parks/${WALIBI_PARK_ID}/queue_times.json`,
-];
+const WAIT_TIMES_ENDPOINT = `https://throbbing-heart-8a7a.harrybarry1080.workers.dev/?park=${WALIBI_PARK_ID}`;
+const WAIT_TIMES_REFRESH_MS = 5 * 60 * 1000; // 5 minuten
+const WAIT_TIMES_SOURCE_ENDPOINTS = [WAIT_TIMES_ENDPOINT];
 
 const defaultActivities = [
   {
@@ -1454,10 +1450,10 @@ function setupWaitTimesWidget() {
       formatUpdatedLabel(payload);
       setStatus("", "info");
       hasRendered = true;
-    } catch (error) {
-      console.error("Kon wachttijden niet laden", error);
-      if (!hasRendered && content instanceof HTMLElement) {
-        content.innerHTML = "";
+    } catch (err) {
+      console.error("Kon wachttijden niet laden", err);
+      if (content instanceof HTMLElement && !hasRendered) {
+        content.textContent = "Kon wachttijden niet laden.";
       }
       const message = hasRendered
         ? "Kon wachttijden niet verversen."
@@ -1471,7 +1467,12 @@ function setupWaitTimesWidget() {
     }
   };
 
-  const openModal = () => {
+  const openModal = (ride) => {
+    if (!ride) {
+      console.warn("openModal: geen ride (data niet geladen?)");
+      return;
+    }
+
     if (isWaitTimesModalOpen()) {
       return;
     }
@@ -1524,7 +1525,7 @@ function setupWaitTimesWidget() {
     if (isWaitTimesModalOpen()) {
       closeModal();
     } else {
-      openModal();
+      openModal({ id: "wait-times" });
     }
   });
 
